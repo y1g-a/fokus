@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fokus">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Fokus</title>
+<style>
+:root{--bg:#0f1115;--card:#1a1d24;--fg:#e8e8ea;--mute:#8a8f98;--acc:#4ade80;--red:#ef4444;--line:#2a2f3a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0 auto;font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--fg);max-width:520px;
+  padding:calc(12px + env(safe-area-inset-top)) 16px calc(90px + env(safe-area-inset-bottom))}
+.card{background:var(--card);border-radius:14px;padding:16px;margin-bottom:14px}
+h1{font-size:1.4rem;margin:4px 0 14px}
+h2{margin:0 0 10px;font-size:.95rem;color:var(--mute);font-weight:500}
+.big{font-size:3.5rem;font-weight:700;text-align:center;line-height:1}
+.sub{text-align:center;color:var(--mute);margin-top:6px}
+.stats{display:flex;justify-content:space-around;text-align:center;margin-top:14px}
+.stats b{display:block;font-size:1.4rem}
+button{background:var(--line);color:var(--fg);border:0;border-radius:10px;padding:10px 14px;font:inherit;cursor:pointer}
+.primary{background:var(--acc);color:#0f1115;font-weight:700}
+.bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:6px}
+.bar div{height:100%;background:var(--acc)}
+input,textarea,select{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit}
+ul{padding-left:18px;margin:8px 0} li{margin:4px 0}
+li button{padding:1px 8px;margin-left:6px;font-size:.8rem}
+.row{display:flex;gap:8px;margin-top:8px;align-items:center}
+.right{margin-left:auto}
+.muted{color:var(--mute);font-size:.85rem}
+.task{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.task:last-child{border:0}
+.task input{width:22px;height:22px;accent-color:var(--acc);flex:none}
+.task.done span{text-decoration:line-through;color:var(--mute)}
+.stage{border-left:3px solid var(--line);padding:4px 0 4px 12px;margin:10px 0}
+.stage.now{border-color:var(--acc)} .stage.past{opacity:.5}
+.chip{display:inline-block;padding:6px 10px;margin:3px;border-radius:20px;background:var(--line);cursor:pointer}
+.chip input{display:none} .chip:has(input:checked){background:var(--acc);color:#0f1115}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal div{aspect-ratio:1;border-radius:4px;background:var(--line)}
+.cal .ok{background:var(--acc)} .cal .rel{background:var(--red)} .cal .clean{background:#1f5f3a}
+.view{display:none} .view.on{display:block}
+nav{position:fixed;left:0;right:0;bottom:0;background:#14171d;border-top:1px solid var(--line);display:flex;justify-content:center;
+  padding:6px 0 calc(6px + env(safe-area-inset-bottom))}
+nav button{background:none;flex:1;max-width:104px;font-size:1.3rem;padding:4px;color:var(--mute)}
+nav button span{display:block;font-size:.7rem}
+nav button.on{color:var(--acc)}
+nav .sosnav{color:var(--red)}
+.overlay{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;
+  padding:24px;text-align:center;overflow:auto;z-index:10}
+.overlay.on{display:flex}
+#onb{display:none;justify-content:flex-start;text-align:left}
+#onb.on{display:block}
+.circle{width:170px;height:170px;border-radius:50%;background:var(--acc);opacity:.85;margin:20px auto;display:flex;align-items:center;
+  justify-content:center;color:#0f1115;font-weight:700;transform:scale(.55)}
+dialog{background:var(--card);color:var(--fg);border:0;border-radius:14px;width:min(92vw,420px)}
+dialog::backdrop{background:#000a}
+details{margin:8px 0} summary{cursor:pointer;font-weight:600}
+</style>
+</head>
+<body>
+
+<!-- HEUTE -->
+<section class="view on" id="v-home">
+  <div class="row"><h1>Fokus</h1><button class="right" data-go="settings">⚙️</button></div>
+  <div class="card">
+    <div class="big" id="days">0</div>
+    <div class="sub" id="hm"></div>
+    <div class="row" style="margin-top:14px"><b id="lvl"></b><span class="muted right" id="lvlNext"></span></div>
+    <div class="bar"><div id="lvlBar"></div></div>
+    <div class="stats">
+      <div><b id="best">0</b><span class="muted">Rekord</span></div>
+      <div><b id="wins">0</b><span class="muted">Dränge besiegt</span></div>
+      <div><b id="relCount">0</b><span class="muted">Neustarts</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h2 id="todayStage">Heute im Plan</h2>
+    <div id="tasks"></div>
+  </div>
+  <div class="card" id="checkCard"></div>
+  <div class="row"><button class="right" id="relapseBtn">Rückfall – neu starten</button></div>
+</section>
+
+<!-- PLAN -->
+<section class="view" id="v-plan">
+  <h1>Dein Plan</h1>
+  <div class="card"><div id="stages"></div></div>
+  <div class="card">
+    <h2>Warum ich aufhöre</h2>
+    <ul id="reasons"></ul>
+    <div class="row"><input id="reasonIn" placeholder="z. B. mehr Energie, echte Beziehungen…"><button id="reasonAdd">+</button></div>
+  </div>
+  <div class="card"><h2>Level</h2><ul id="levels" style="list-style:none;padding:0"></ul></div>
+</section>
+
+<!-- RUHE -->
+<section class="view" id="v-calm">
+  <h1>Ruhe</h1>
+  <div class="card" id="player" style="display:none;text-align:center">
+    <div class="circle" id="pCircle"><span id="pLabel"></span></div>
+    <p id="pText" style="font-size:1.1rem;min-height:3em"></p>
+    <div class="muted" id="pTime"></div>
+    <div class="row" style="justify-content:center"><button id="pStop">Beenden</button></div>
+  </div>
+  <div class="card">
+    <h2>Atemübungen</h2>
+    <div id="breathList"></div>
+  </div>
+  <div class="card">
+    <h2>Geführte Meditationen</h2>
+    <div id="medList"></div>
+    <label class="row muted"><input type="checkbox" id="voice" style="width:auto"> Vorlesen (Sprachausgabe)</label>
+  </div>
+</section>
+
+<!-- TAGEBUCH -->
+<section class="view" id="v-journal">
+  <h1>Tagebuch</h1>
+  <div class="card">
+    <textarea id="jIn" rows="4" placeholder="Was geht dir durch den Kopf? Was hast du heute gelernt?"></textarea>
+    <div class="row"><button class="primary right" id="jAdd">Speichern</button></div>
+  </div>
+  <div class="card"><h2>Letzte 35 Tage</h2><div class="cal" id="cal"></div>
+    <p class="muted">🟩 Check-in · 🟢 clean · 🟥 Rückfall</p></div>
+  <div class="card"><h2>Deine Auslöser</h2><div id="trigStats"></div><ul id="relapses"></ul></div>
+  <div class="card"><h2>Einträge</h2><div id="entries"></div></div>
+</section>
+
+<!-- EINSTELLUNGEN -->
+<section class="view" id="v-settings">
+  <div class="row"><button data-go="home">←</button><h1 style="margin:0">Einstellungen</h1></div>
+  <div class="card">
+    <h2>Inhalte blockieren</h2>
+    <p class="muted">Eine Web-App kann selbst nichts sperren – aber dein Handy kann es, in 2 Minuten:</p>
+    <details><summary>Android</summary><ol>
+      <li>Einstellungen → Netzwerk &amp; Internet → <b>Privates DNS</b></li>
+      <li>„Hostname des privaten DNS-Anbieters“ wählen</li>
+      <li>Eintragen: <code>family-filter-dns.cleanbrowsing.org</code> → Speichern</li></ol></details>
+    <details><summary>iPhone</summary><ol>
+      <li>Einstellungen → Bildschirmzeit → <b>Beschränkungen</b> aktivieren</li>
+      <li>Inhaltsbeschränkungen → Webinhalte → <b>Websites für Erwachsene beschränken</b></li>
+      <li>Bildschirmzeit-Code von einem Freund setzen lassen</li></ol></details>
+    <details><summary>Windows-PC</summary><ol>
+      <li>Einstellungen → Netzwerk → Adapter → DNS-Serverzuweisung → Bearbeiten → Manuell</li>
+      <li>IPv4 DNS: <code>185.228.168.168</code> und <code>185.228.169.168</code></li></ol></details>
+  </div>
+  <div class="card">
+    <h2>Backup</h2>
+    <p class="muted">Deine Daten liegen nur auf diesem Gerät. Sichere sie ab und zu.</p>
+    <div class="row"><button id="exportBtn">Exportieren</button><button id="importBtn">Importieren</button>
+      <input type="file" id="importFile" accept=".json" hidden></div>
+  </div>
+  <div class="card">
+    <h2>Neu beginnen</h2>
+    <button id="resetAll" style="background:var(--red);color:#fff">Alle Daten löschen</button>
+  </div>
+</section>
+
+<nav>
+  <button data-go="home" class="on">🏠<span>Heute</span></button>
+  <button data-go="plan">🗺️<span>Plan</span></button>
+  <button class="sosnav" id="panicBtn">🚨<span>Notfall</span></button>
+  <button data-go="calm">🧘<span>Ruhe</span></button>
+  <button data-go="journal">📓<span>Tagebuch</span></button>
+</nav>
+
+<!-- NOTFALL -->
+<div class="overlay" id="sos">
+  <h1 style="margin:0">Atme. Das geht vorbei.</h1>
+  <p class="muted">Ein Drang dauert meist nur wenige Minuten. Du musst nichts tun – nur warten.</p>
+  <div class="circle" id="sosCircle"><span id="sosLabel"></span></div>
+  <div style="font-size:2rem;font-weight:700" id="cd">5:00</div>
+  <p id="lose" style="color:var(--red)"></p>
+  <p><b>Jetzt tun:</b> <span id="tip"></span></p>
+  <div id="sosReasons" class="muted"></div>
+  <div class="row">
+    <button id="tipBtn">Andere Idee</button>
+    <button id="winBtn" class="primary">Geschafft 💪</button>
+  </div>
+</div>
+
+<!-- ONBOARDING -->
+<div class="overlay" id="onb">
+  <h1>Willkommen bei Fokus</h1>
+  <p class="muted">Ein paar Fragen, damit dein Plan zu dir passt. Alles bleibt auf deinem Gerät.</p>
+  <div class="card">
+    <h2>Wie oft hast du bisher Pornos geschaut?</h2>
+    <select id="oFreq"><option>Mehrmals täglich</option><option selected>Täglich</option><option>Mehrmals pro Woche</option><option>Wöchentlich oder seltener</option></select>
+  </div>
+  <div class="card"><h2>Wann ist der Drang am stärksten?</h2><div id="oTrig"></div></div>
+  <div class="card"><h2>Dein wichtigster Grund aufzuhören</h2><input id="oReason" placeholder="z. B. Ich will mich wieder selbst respektieren"></div>
+  <div class="card"><h2>Seit wann bist du clean?</h2><input type="date" id="oDate"></div>
+  <button class="primary" id="oGo" style="width:100%;padding:16px">Plan erstellen</button>
+</div>
+
+<!-- RÜCKFALL -->
+<dialog id="relDlg">
+  <form method="dialog">
+    <h2>Neu starten</h2>
+    <p class="muted">Ein Rückfall ist kein Scheitern, sondern ein Datenpunkt. Dein Rekord bleibt.</p>
+    <select id="rTrig"></select>
+    <textarea id="rNote" rows="2" style="margin-top:8px" placeholder="Was ist passiert? (optional)"></textarea>
+    <div class="row"><button value="cancel" class="right">Abbrechen</button><button value="ok" class="primary">Neu starten</button></div>
+  </form>
+</dialog>
+
+<script>
+const K = 'fokus-v1', DAY = 864e5;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dkey = t => new Date(t).toLocaleDateString('sv'); // YYYY-MM-DD, lokal
+const fmt = t => new Date(t).toLocaleDateString('de-DE', {day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit'});
+
+// ---------- Inhalte ----------
+const TRIG = {
+  bored: ['Langeweile', 'Schreib 5 Dinge auf, die du bei Langeweile stattdessen tun kannst'],
+  stress: ['Stress', 'Baue heute 10 Minuten Bewegung direkt nach Arbeit/Schule ein'],
+  lonely: ['Einsamkeit', 'Schreib heute einem Freund oder Familienmitglied'],
+  night: ['Nachts im Bett', 'Lade dein Handy heute Nacht außerhalb des Schlafzimmers'],
+  social: ['Social Media', 'Entfolge 5 Accounts, die dich triggern'],
+  alone: ['Allein zu Hause', 'Plane konkret, was du machst, wenn du heute allein bist'],
+  alcohol: ['Alkohol', 'Heute kein Alkohol – oder Handy weglegen, bevor du trinkst'],
+  other: ['Sonstiges', 'Schreib im Tagebuch auf, was dich heute getriggert hat'],
+};
+const STAGES = [
+  {to: 7, name: 'Phase 1 · Ankommen', desc: 'Die ersten Tage sind die härtesten. Ziel: Auslöser erkennen und Hürden einbauen.',
+   tasks: ['Richte den Inhaltsfilter ein (⚙️ → Inhalte blockieren)', 'Schreib 3 Gründe auf, warum du aufhörst', 'Notiere, wann der Drang heute am stärksten war',
+     'Mach eine Atemübung im Ruhe-Tab', 'Lösche Apps oder Lesezeichen, die dich triggern', 'Geh heute mindestens 20 Minuten raus', 'Trink heute 2 Liter Wasser']},
+  {to: 21, name: 'Phase 2 · Neue Routinen', desc: 'Ersetze die alte Gewohnheit durch neue, die dir guttun.',
+   tasks: ['Mach heute 20 Minuten Sport', 'Lies 10 Seiten in einem Buch', 'Plane deinen Abend im Voraus', 'Mach die Meditation „Drang-Surfen“',
+     'Koch dir etwas Gutes', 'Schreib einen Tagebucheintrag', 'Geh vor Mitternacht schlafen']},
+  {to: 45, name: 'Phase 3 · Stabilisieren', desc: 'Dein Gehirn gewöhnt sich um. Bleib dran, auch wenn es leichter wird – hier passieren viele Rückfälle.',
+   tasks: ['Triff dich mit jemandem persönlich', 'Lerne 15 Minuten etwas Neues', 'Lies deine Gründe laut vor', 'Schau dir deine Auslöser im Tagebuch an und mach einen Plan',
+     'Dusch heute kalt', 'Mach den Body-Scan im Ruhe-Tab', 'Räum einen Bereich deiner Wohnung auf']},
+  {to: 100, name: 'Phase 4 · Festigen', desc: 'Die neue Gewohnheit wird zur Identität. Ziel: 100 Tage – Meister.',
+   tasks: ['Setz dir ein Ziel für die nächsten 30 Tage', 'Mach etwas Kreatives (Musik, Zeichnen, Schreiben)', 'Hilf heute jemandem', 'Schreib auf, was sich seit Tag 1 verändert hat',
+     'Mach 30 Minuten Sport', 'Verbring eine Stunde ohne Handy', 'Plane etwas, auf das du dich freust']},
+  {to: Infinity, name: 'Phase 5 · Freiheit', desc: 'Du hast es geschafft. Jetzt geht es ums Halten – und ums Leben, das du dir aufgebaut hast.',
+   tasks: ['Reflektiere im Tagebuch: Wer bist du heute?', 'Bleib bei deinen Routinen', 'Bleib wachsam bei Stress und Langeweile', 'Gönn dir etwas für deinen Fortschritt']},
+];
+const LEVELS = [[0,'Neustart'],[1,'Erster Schritt'],[3,'Entschlossen'],[7,'Eine Woche stark'],[14,'Durchhalter'],[30,'Fels'],[60,'Champion'],[100,'Meister'],[180,'Legende'],[365,'Frei']];
+const TIPS = ['10 Liegestütze oder Kniebeugen – jetzt', 'Kalt duschen oder Gesicht kalt waschen', 'Raus gehen – 10 Minuten spazieren',
+  'Handy in einen anderen Raum legen', 'Einen Freund anrufen oder schreiben', 'Ein großes Glas Wasser trinken',
+  'Aufschreiben, was du gerade fühlst', 'Zimmer aufräumen – 5 Minuten', 'In einen Raum mit anderen Menschen gehen'];
+const BREATH = [
+  {name: 'Box-Atmung (4-4-4-4)', info: 'Beruhigt schnell, gut bei Drang', p: [['Einatmen',4,1],['Halten',4],['Ausatmen',4,.55],['Halten',4]]},
+  {name: '4-7-8 Atmung', info: 'Entspannt tief, gut zum Einschlafen', p: [['Einatmen',4,1],['Halten',7],['Ausatmen',8,.55]]},
+  {name: 'Ruhiges Atmen (5-5)', info: 'Gleichmäßig, für zwischendurch', p: [['Einatmen',5,1],['Ausatmen',5,.55]]},
+];
+const MEDS = [
+  {name: 'Drang-Surfen', info: '5 Min · den Drang beobachten, statt ihm zu folgen', s: [
+    ['Setz dich bequem hin und schließ die Augen, wenn du magst.', 15],
+    ['Atme dreimal tief ein und langsam wieder aus.', 20],
+    ['Spür den Drang. Wo im Körper merkst du ihn? Brust, Bauch, Kopf?', 30],
+    ['Du musst nichts dagegen tun. Beobachte ihn nur, wie eine Welle.', 30],
+    ['Die Welle wird stärker. Das ist normal. Bleib beim Atem.', 30],
+    ['Merke: Ein Gedanke ist kein Befehl. Du entscheidest.', 30],
+    ['Spür, wie die Welle langsam kleiner wird.', 40],
+    ['Atme weiter ruhig. Jeder Atemzug trägt dich weiter.', 40],
+    ['Du hast die Welle gesurft. Öffne langsam die Augen.', 15]]},
+  {name: 'Body-Scan', info: '5 Min · Spannung loslassen', s: [
+    ['Leg dich hin oder setz dich bequem. Atme ruhig.', 20],
+    ['Richte die Aufmerksamkeit auf deine Füße. Lass sie schwer werden.', 30],
+    ['Wandere zu den Beinen. Lass jede Anspannung los.', 30],
+    ['Jetzt Bauch und Rücken. Spür, wie sie sich mit dem Atem bewegen.', 35],
+    ['Schultern und Nacken. Lass die Schultern sinken.', 35],
+    ['Dein Gesicht. Kiefer locker, Stirn glatt.', 30],
+    ['Spür jetzt den ganzen Körper auf einmal. Ruhig und schwer.', 40],
+    ['Atme noch ein paar Mal tief. Komm langsam zurück.', 20]]},
+  {name: 'Ruhiger Abend', info: '4 Min · vor dem Schlafen, wenn der Drang oft kommt', s: [
+    ['Leg das Handy gleich weg. Das ist die letzte Übung für heute.', 15],
+    ['Atme vier Sekunden ein, halte kurz, atme sechs Sekunden aus.', 40],
+    ['Denk an eine Sache, die heute gut war.', 35],
+    ['Denk an eine Sache, auf die du dich morgen freust.', 35],
+    ['Sag dir: Heute habe ich mich für mich entschieden.', 25],
+    ['Lass den Tag los. Gute Nacht.', 15]]},
+];
+
+// ---------- Daten ----------
+let S;
+try { S = JSON.parse(localStorage.getItem(K)); } catch {}
+S = Object.assign({start: Date.now(), best: 0, wins: 0, relapses: [], reasons: [], checkins: [], done: {}, journal: [], voice: false, profile: null}, S || {});
+if (Array.isArray(S.checkins)) S.checkins = Object.fromEntries(S.checkins.map(c => [dkey(c.t), c])); // alte Version migrieren
+const save = () => { try { localStorage.setItem(K, JSON.stringify(S)); } catch {} };
+const days = () => Math.floor((Date.now() - S.start) / DAY);
+const stageIdx = d => STAGES.findIndex(s => d < s.to);
+const levelIdx = d => LEVELS.findLastIndex(l => d >= l[0]);
+
+function todaysTasks() {
+  const d = days(), st = STAGES[stageIdx(d)];
+  const pool = [...st.tasks, ...(S.profile?.triggers || []).map(t => TRIG[t][1])];
+  const out = [];
+  for (let i = 0; out.length < Math.min(3, pool.length); i++) {
+    const t = pool[(d * 3 + i) % pool.length];
+    if (!out.includes(t)) out.push(t);
+  }
+  return out;
+}
+
+// ---------- Rendern ----------
+function tick() {
+  const t = Date.now() - S.start, d = days();
+  $('days').textContent = d;
+  $('hm').textContent = `${d === 1 ? 'Tag' : 'Tage'} clean · ${Math.floor(t % DAY / 36e5)} Std ${Math.floor(t % 36e5 / 6e4)} Min`;
+  const li = levelIdx(d), next = LEVELS[li + 1];
+  $('lvl').textContent = `Level ${li + 1} · ${LEVELS[li][1]}`;
+  $('lvlNext').textContent = next ? `noch ${next[0] - d} ${next[0] - d === 1 ? 'Tag' : 'Tage'} bis „${next[1]}“` : 'Höchstes Level 🏆';
+  $('lvlBar').style.width = next ? Math.min(100, (t - LEVELS[li][0] * DAY) / ((next[0] - LEVELS[li][0]) * DAY) * 100) + '%' : '100%';
+  $('best').textContent = Math.max(S.best, d);
+}
+
+function render() {
+  const d = days(), today = dkey(Date.now()), si = stageIdx(d);
+  tick();
+  $('wins').textContent = S.wins;
+  $('relCount').textContent = S.relapses.length;
+
+  // Aufgaben
+  const done = S.done[today] || [];
+  $('todayStage').textContent = `Heute im Plan · ${STAGES[si].name}`;
+  $('tasks').innerHTML = todaysTasks().map(t =>
+    `<label class="task ${done.includes(t) ? 'done' : ''}"><input type="checkbox" data-task="${esc(t)}" ${done.includes(t) ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('');
+
+  // Check-in
+  const c = S.checkins[today];
+  $('checkCard').innerHTML = c
+    ? `<h2>Check-in heute ✓</h2><div>Drang ${c.urge}/5 · ${esc(c.mood)}${c.note ? '<br><span class="muted">' + esc(c.note) + '</span>' : ''}</div>`
+    : `<h2>Täglicher Check-in</h2>
+       <div class="row"><select id="urge"><option value="1">Drang: 1 – kaum</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5 – sehr stark</option></select>
+       <select id="mood"><option>😄 gut</option><option selected>🙂 ok</option><option>😐 mäßig</option><option>😞 schlecht</option></select></div>
+       <textarea id="note" rows="2" style="margin-top:8px" placeholder="Wie war der Tag? Was hat geholfen?"></textarea>
+       <div class="row"><button class="primary right" id="checkBtn">Speichern</button></div>`;
+
+  // Plan
+  $('stages').innerHTML = STAGES.map((s, i) => {
+    const from = i ? STAGES[i - 1].to : 0;
+    return `<div class="stage ${i === si ? 'now' : i < si ? 'past' : ''}"><b>${s.name}</b> <span class="muted">Tag ${from}${s.to === Infinity ? '+' : '–' + s.to}</span>
+      ${i === si ? `<p class="muted" style="margin:4px 0">${s.desc}</p><div class="bar"><div style="width:${s.to === Infinity ? 100 : (d - from) / (s.to - from) * 100}%"></div></div>` : ''}</div>`;
+  }).join('');
+  $('reasons').innerHTML = S.reasons.map((r, i) => `<li>${esc(r)}<button data-del="${i}">×</button></li>`).join('') || '<li class="muted">Noch keine Gründe.</li>';
+  const li = levelIdx(d);
+  $('levels').innerHTML = LEVELS.map((l, i) => `<li>${i <= li ? '✅' : '🔒'} Level ${i + 1} · ${l[1]} <span class="muted">(${l[0]} Tage)</span></li>`).join('');
+
+  // Tagebuch
+  $('entries').innerHTML = S.journal.slice().reverse().map(j => `<p><span class="muted">${fmt(j.t)}</span><br>${esc(j.text).replace(/\n/g, '<br>')}</p>`).join('') || '<p class="muted">Noch keine Einträge.</p>';
+  const relDays = new Set(S.relapses.map(r => dkey(r.t))), startDay = dkey(S.start);
+  let cal = '';
+  for (let i = 34; i >= 0; i--) {
+    const k = dkey(Date.now() - i * DAY);
+    const cls = relDays.has(k) ? 'rel' : S.checkins[k] ? 'ok' : k >= startDay ? 'clean' : '';
+    cal += `<div class="${cls}" title="${k}"></div>`;
+  }
+  $('cal').innerHTML = cal;
+  const counts = {};
+  S.relapses.forEach(r => counts[r.trigger || 'other'] = (counts[r.trigger || 'other'] || 0) + 1);
+  const max = Math.max(1, ...Object.values(counts));
+  $('trigStats').innerHTML = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, n]) =>
+    `<div class="row"><span style="width:130px">${TRIG[k]?.[0] || k}</span><div class="bar" style="flex:1;margin:0"><div style="width:${n / max * 100}%;background:var(--red)"></div></div><span>${n}</span></div>`).join('')
+    || '<p class="muted">Noch keine Rückfälle. Weiter so.</p>';
+  $('relapses').innerHTML = S.relapses.slice().reverse().map(r =>
+    `<li><span class="muted">${fmt(r.t)}</span> · nach ${r.days} Tagen${r.note ? ' – ' + esc(r.note) : ''}</li>`).join('');
+}
+
+// ---------- Navigation ----------
+function go(v) {
+  document.querySelectorAll('.view').forEach(e => e.classList.toggle('on', e.id === 'v-' + v));
+  document.querySelectorAll('nav [data-go]').forEach(b => b.classList.toggle('on', b.dataset.go === v));
+  scrollTo(0, 0);
+}
+document.addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) go(g.dataset.go); });
+
+// ---------- Heute ----------
+$('tasks').onchange = e => {
+  const t = e.target.dataset.task, k = dkey(Date.now()), l = S.done[k] ||= [];
+  e.target.checked ? l.push(t) : l.splice(l.indexOf(t), 1);
+  save(); render();
+};
+$('checkCard').onclick = e => {
+  if (e.target.id !== 'checkBtn') return;
+  S.checkins[dkey(Date.now())] = {t: Date.now(), urge: $('urge').value, mood: $('mood').value, note: $('note').value.trim()};
+  save(); render();
+};
+$('rTrig').innerHTML = Object.entries(TRIG).map(([k, v]) => `<option value="${k}">Auslöser: ${v[0]}</option>`).join('');
+$('relapseBtn').onclick = () => { $('rNote').value = ''; $('relDlg').showModal(); };
+$('relDlg').onclose = () => {
+  if ($('relDlg').returnValue !== 'ok') return;
+  const d = days();
+  S.best = Math.max(S.best, d);
+  S.relapses.push({t: Date.now(), days: d, trigger: $('rTrig').value, note: $('rNote').value.trim()});
+  S.start = Date.now();
+  save(); render();
+};
+
+// ---------- Plan ----------
+$('reasons').onclick = e => { const i = e.target.dataset.del; if (i !== undefined) { S.reasons.splice(i, 1); save(); render(); } };
+$('reasonAdd').onclick = () => { const v = $('reasonIn').value.trim(); if (v) { S.reasons.push(v); $('reasonIn').value = ''; save(); render(); } };
+$('reasonIn').onkeydown = e => e.key === 'Enter' && $('reasonAdd').click();
+
+// ---------- Tagebuch ----------
+$('jAdd').onclick = () => { const v = $('jIn').value.trim(); if (v) { S.journal.push({t: Date.now(), text: v}); $('jIn').value = ''; save(); render(); } };
+
+// ---------- Atmen & Meditation ----------
+let stops = [];
+const stopAll = () => { stops.forEach(f => f()); stops = []; window.speechSynthesis?.cancel(); };
+function breathe(circle, label, pattern) {
+  let i = 0, t;
+  const step = () => {
+    const [txt, sec, sc] = pattern[i++ % pattern.length];
+    label.textContent = txt;
+    if (sc) { circle.style.transition = `transform ${sec}s ease-in-out`; circle.style.transform = `scale(${sc})`; }
+    t = setTimeout(step, sec * 1000);
+  };
+  circle.style.transition = 'none'; circle.style.transform = 'scale(.55)';
+  requestAnimationFrame(() => requestAnimationFrame(step));
+  stops.push(() => clearTimeout(t));
+}
+function countdown(el, sec) {
+  const show = () => el.textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+  show();
+  const c = setInterval(() => { sec = Math.max(0, sec - 1); show(); }, 1000);
+  stops.push(() => clearInterval(c));
+}
+function say(txt) {
+  if (!S.voice || !window.speechSynthesis) return;
+  const u = new SpeechSynthesisUtterance(txt); u.lang = 'de-DE'; u.rate = .9;
+  speechSynthesis.speak(u);
+}
+$('breathList').innerHTML = BREATH.map((b, i) => `<div class="task"><span>${b.name}<br><span class="muted">${b.info}</span></span><button class="right" data-b="${i}">▶</button></div>`).join('');
+$('medList').innerHTML = MEDS.map((m, i) => `<div class="task"><span>${m.name}<br><span class="muted">${m.info}</span></span><button class="right" data-m="${i}">▶</button></div>`).join('');
+$('breathList').onclick = e => {
+  const b = BREATH[e.target.dataset.b]; if (!b) return;
+  stopAll(); $('player').style.display = ''; $('pCircle').style.display = ''; $('pText').textContent = b.name;
+  breathe($('pCircle'), $('pLabel'), b.p); countdown($('pTime'), 180); scrollTo(0, 0);
+};
+$('medList').onclick = e => {
+  const m = MEDS[e.target.dataset.m]; if (!m) return;
+  stopAll(); $('player').style.display = ''; $('pCircle').style.display = 'none';
+  countdown($('pTime'), m.s.reduce((a, s) => a + s[1], 0));
+  let i = 0, t;
+  const next = () => {
+    if (i >= m.s.length) { $('pText').textContent = 'Fertig. Gut gemacht. 🌿'; return; }
+    const [txt, sec] = m.s[i++]; $('pText').textContent = txt; say(txt);
+    t = setTimeout(next, sec * 1000);
+  };
+  next(); stops.push(() => clearTimeout(t)); scrollTo(0, 0);
+};
+$('pStop').onclick = () => { stopAll(); $('player').style.display = 'none'; };
+$('voice').checked = S.voice;
+$('voice').onchange = e => { S.voice = e.target.checked; save(); };
+
+// ---------- Notfall ----------
+const newTip = () => $('tip').textContent = TIPS[Math.floor(Math.random() * TIPS.length)];
+$('panicBtn').onclick = () => {
+  stopAll();
+  $('sos').classList.add('on');
+  newTip();
+  const d = days();
+  $('lose').textContent = d ? `Du würdest ${d} ${d === 1 ? 'Tag' : 'Tage'} Fortschritt verlieren.` : '';
+  $('sosReasons').innerHTML = S.reasons.length ? 'Denk daran, warum:<br>' + S.reasons.map(esc).join(' · ') : '';
+  breathe($('sosCircle'), $('sosLabel'), BREATH[0].p);
+  countdown($('cd'), 300);
+};
+$('tipBtn').onclick = newTip;
+$('winBtn').onclick = () => { stopAll(); S.wins++; save(); render(); $('sos').classList.remove('on'); };
+
+// ---------- Einstellungen ----------
+$('exportBtn').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(S)], {type: 'application/json'}));
+  a.download = `fokus-backup-${dkey(Date.now())}.json`; a.click();
+};
+$('importBtn').onclick = () => $('importFile').click();
+$('importFile').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  f.text().then(txt => {
+    try { const d = JSON.parse(txt); if (!d.start) throw 0; S = Object.assign(S, d); save(); render(); alert('Backup geladen.'); }
+    catch { alert('Das ist keine gültige Backup-Datei.'); }
+  });
+};
+$('resetAll').onclick = () => {
+  if (confirm('Wirklich ALLE Daten löschen? Das kann nicht rückgängig gemacht werden.')) { localStorage.removeItem(K); location.reload(); }
+};
+
+// ---------- Onboarding ----------
+$('oTrig').innerHTML = Object.entries(TRIG).filter(([k]) => k !== 'other').map(([k, v]) => `<label class="chip"><input type="checkbox" value="${k}">${v[0]}</label>`).join('');
+$('oDate').value = $('oDate').max = dkey(Date.now());
+$('oGo').onclick = () => {
+  const date = $('oDate').value;
+  S.profile = {freq: $('oFreq').value, triggers: [...document.querySelectorAll('#oTrig input:checked')].map(i => i.value)};
+  S.start = !date || date >= dkey(Date.now()) ? Date.now() : new Date(date + 'T00:00').getTime();
+  const r = $('oReason').value.trim(); if (r) S.reasons.push(r);
+  save(); render(); $('onb').classList.remove('on');
+};
+if (!S.profile) $('onb').classList.add('on');
+
+render();
+setInterval(tick, 30000);
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
