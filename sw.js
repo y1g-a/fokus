@@ -1,5 +1,5 @@
 // Offline-Cache. Nach Änderungen an der App: Versionsnummer erhöhen, damit Handys das Update laden.
-const C = 'fokus-v2';
+const C = 'fokus-v3';
 const FILES = ['./', 'index.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => e.waitUntil(caches.open(C).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));

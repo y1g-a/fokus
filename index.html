@@ -330,7 +330,7 @@ function render() {
   // Check-in
   const c = S.checkins[today];
   $('checkCard').innerHTML = c
-    ? `<h2>Check-in heute ✓</h2><div>Drang ${c.urge}/5 · ${esc(c.mood)}${c.note ? '<br><span class="muted">' + esc(c.note) + '</span>' : ''}</div>`
+    ? `<h2>Check-in heute ✓</h2><div>Drang ${esc(c.urge)}/5 · ${esc(c.mood)}${c.note ? '<br><span class="muted">' + esc(c.note) + '</span>' : ''}</div>`
     : `<h2>Täglicher Check-in</h2>
        <div class="row"><select id="urge"><option value="1">Drang: 1 – kaum</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5 – sehr stark</option></select>
        <select id="mood"><option>😄 gut</option><option selected>🙂 ok</option><option>😐 mäßig</option><option>😞 schlecht</option></select></div>
@@ -361,10 +361,10 @@ function render() {
   S.relapses.forEach(r => counts[r.trigger || 'other'] = (counts[r.trigger || 'other'] || 0) + 1);
   const max = Math.max(1, ...Object.values(counts));
   $('trigStats').innerHTML = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, n]) =>
-    `<div class="row"><span style="width:130px">${TRIG[k]?.[0] || k}</span><div class="bar" style="flex:1;margin:0"><div style="width:${n / max * 100}%;background:var(--red)"></div></div><span>${n}</span></div>`).join('')
+    `<div class="row"><span style="width:130px">${esc(TRIG[k]?.[0] || k)}</span><div class="bar" style="flex:1;margin:0"><div style="width:${n / max * 100}%;background:var(--red)"></div></div><span>${n}</span></div>`).join('')
     || '<p class="muted">Noch keine Rückfälle. Weiter so.</p>';
   $('relapses').innerHTML = S.relapses.slice().reverse().map(r =>
-    `<li><span class="muted">${fmt(r.t)}</span> · nach ${r.days} Tagen${r.note ? ' – ' + esc(r.note) : ''}</li>`).join('');
+    `<li><span class="muted">${fmt(r.t)}</span> · nach ${esc(r.days)} Tagen${r.note ? ' – ' + esc(r.note) : ''}</li>`).join('');
 }
 
 // ---------- Navigation ----------
@@ -479,7 +479,12 @@ $('importBtn').onclick = () => $('importFile').click();
 $('importFile').onchange = e => {
   const f = e.target.files[0]; if (!f) return;
   f.text().then(txt => {
-    try { const d = JSON.parse(txt); if (!d.start) throw 0; S = Object.assign(S, d); save(); render(); alert('Backup geladen.'); }
+    try {
+      const d = JSON.parse(txt);
+      if (typeof d.start !== 'number') throw 0;
+      for (const k of Object.keys(S)) if (k in d) S[k] = d[k]; // nur bekannte Felder übernehmen
+      save(); render(); alert('Backup geladen.');
+    }
     catch { alert('Das ist keine gültige Backup-Datei.'); }
   });
 };
